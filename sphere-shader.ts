@@ -5,6 +5,8 @@
 const vs = `#define STANDARD
 varying vec3 vViewPosition;
 varying vec3 vObjectNormal;
+varying vec4 vInputData;
+varying vec4 vOutputData;
 
 #include <common>
 #include <batching_pars_vertex>
@@ -73,6 +75,10 @@ void main() {
   #include <logdepthbuf_vertex>
   #include <clipping_planes_vertex>
   vViewPosition = - mvPosition.xyz;
+
+  vInputData = inputData;
+  vOutputData = outputData;
+
   #include <fog_vertex>
 }`;
 
@@ -80,8 +86,9 @@ const fs = `
 precision highp float;
 
 varying vec3 vObjectNormal;
+varying vec4 vInputData;
+varying vec4 vOutputData;
 uniform float time;
-uniform vec4 outputData;
 
 // Simplex 2D noise
 vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
@@ -119,25 +126,28 @@ float fbm(vec2 p) {
 }
 
 void main() {
-  vec3 baseSkyColor = vec3(0.2, 0.7, 1.0);
-  // A slightly lighter, more saturated blue for the active state
-  vec3 activeSkyColor = vec3(0.3, 0.75, 1.0);
+  // Define colors for different states
+  vec3 idleSkyColor = vec3(0.2, 0.7, 1.0); // Cool blue for idle
+  vec3 listeningSkyColor = vec3(0.1, 0.8, 0.7); // Attentive teal for listening
+  vec3 speakingSkyColor = vec3(0.4, 0.8, 1.0); // Brighter, active blue for speaking
 
-  // Create a gentle, time-based pulse. The speed can be adjusted here.
+  // Calculate intensity from audio data (using smoothstep for a nice falloff)
+  float inputIntensity = smoothstep(0.0, 0.2, vInputData.y);
+  float outputIntensity = smoothstep(0.0, 0.15, vOutputData.y);
+
+  // Time-based pulse for the speaking animation to make it more dynamic
   float pulse = 0.5 + 0.5 * sin(time * 2.0);
 
-  // Determine the intensity of the animation based on mid-range audio frequencies.
-  // The smoothstep creates a nice ramp-up as the voice starts.
-  float audioIntensity = smoothstep(0.0, 0.15, outputData.y);
-
-  // The final sky color is a mix, where the animation's strength is controlled by audio.
-  // When silent, audioIntensity is 0, color is baseSkyColor.
-  // When speaking, the color will pulse between base and active colors.
-  vec3 skyColor = mix(baseSkyColor, activeSkyColor, audioIntensity * pulse);
-
+  // Mix colors based on state
+  vec3 skyColor = idleSkyColor;
+  // Mix in listening color based on input intensity
+  skyColor = mix(skyColor, listeningSkyColor, inputIntensity);
+  // Mix in speaking color based on output intensity (with a pulse)
+  skyColor = mix(skyColor, speakingSkyColor, outputIntensity * pulse);
+  
   vec3 cloudColor = vec3(1.0, 0.98, 0.9);
 
-  float audioInfluence = 0.1 + outputData.x * 0.5;
+  float audioInfluence = 0.1 + vOutputData.x * 0.5;
   float timeShift = time * 0.1 * (1.0 + audioInfluence * 5.0);
 
   float cloudiness = fbm(vObjectNormal.xy * 2.0 + timeShift);

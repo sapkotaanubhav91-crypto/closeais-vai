@@ -2,7 +2,8 @@
   "name": "closeais vai",
   "description": "Speak, and the orb responds. An interactive experience powered by the Live Audio API.",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "camera"
   ],
-  "prompt": ""
+  "prompt": "Meet CloseAI's VAI, your personal voice assistant. Tap the microphone and ask me anything! You can also set a profile picture and share your screen from the settings."
 }
