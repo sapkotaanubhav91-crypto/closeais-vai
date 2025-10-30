@@ -6,7 +6,7 @@
 
 import {LitElement, css, html} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
-import {Analyser} from './analyser';
+import {Analyser} from './analyser.js';
 
 @customElement('gdm-live-audio-visuals')
 export class GdmLiveAudioVisuals extends LitElement {

@@ -9,10 +9,10 @@
 
 import {LitElement, css, html} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
-import {Analyser} from './analyser';
+import {Analyser} from './analyser.js';
 
 import * as THREE from 'three';
-import {fs as sphereFS, vs as sphereVS} from './sphere-shader';
+import {fs as sphereFS, vs as sphereVS} from './sphere-shader.js';
 
 /**
  * 3D live audio visual.
