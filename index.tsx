@@ -1,4 +1,3 @@
-
 /* tslint:disable */
 /**
  * @license
@@ -19,6 +18,7 @@ export class GdmLiveAudio extends LitElement {
   @state() error = '';
   // @google/genai-api: Fix: Update default voice and remove invalid voice option.
   @state() selectedVoice = 'Zephyr';
+  @state() selectedCelebrity = 'None';
   @state() isSettingsOpen = false;
   @state() profilePhotoUri: string | null = null;
   @state() isCameraOpen = false;
@@ -26,13 +26,9 @@ export class GdmLiveAudio extends LitElement {
   @state() isScreenSharePaused = false;
   @state() isScreenShareSupported = true;
 
-  private readonly voices = [
-    'Zephyr',
-    'Puck',
-    'Charon',
-    'Kore',
-    'Fenrir',
-  ];
+  private readonly voices = ['Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir'];
+
+  private readonly celebrities = ['None', 'Snoop Dogg', 'Ariana Grande', 'Drake'];
 
   private client: GoogleGenAI;
   // @google/genai-api: Fix: Use a promise for the session to avoid race conditions.
@@ -53,7 +49,6 @@ export class GdmLiveAudio extends LitElement {
   private screenStream: MediaStream | null = null;
   private cameraStream: MediaStream | null = null;
   private screenFrameInterval: number | null = null;
-
 
   static styles = css`
     #status {
@@ -215,52 +210,65 @@ export class GdmLiveAudio extends LitElement {
         background-color: #f0f0f0;
       }
     }
-    
+
     .settings-panel button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .setting-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+    .support-note {
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 6px;
+      text-align: center;
     }
 
     .camera-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.5);
-        z-index: 100;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .camera-modal-content {
-        background: white;
-        padding: 20px;
-        border-radius: 12px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 15px;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
     }
 
     #camera-video {
-        border-radius: 8px;
-        max-width: 80vw;
-        max-height: 60vh;
+      border-radius: 8px;
+      max-width: 80vw;
+      max-height: 60vh;
     }
 
     .modal-buttons {
-        display: flex;
-        gap: 10px;
+      display: flex;
+      gap: 10px;
     }
 
     .modal-buttons button {
-        padding: 10px 20px;
-        font-size: 16px;
-        cursor: pointer;
-        border-radius: 8px;
-        border: 1px solid #ccc;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 8px;
+      border: 1px solid #ccc;
     }
   `;
 
@@ -296,6 +304,37 @@ export class GdmLiveAudio extends LitElement {
     this.initSession();
   }
 
+  private getSystemInstruction(): string {
+    const baseInstruction = `When asked who created you or who trained you, respond with: 'I was trained by CloseAI's, an AI company designed to help people with tasks. The founder of CloseAI's is Anubhav Sapkota. He is 12 years old, and he is the world's youngest entrepreneur of AI.' Only if you are asked who Anubhav's friend is, then you should respond with: 'One of his best friends is Ahmed Qamar. Ahmed is a good and real friend of Daksh. Daksh is good, but he is a little greedy and wants Anubhav not to be friends with Ahmed.' If the user shares their screen, you can see it. Be helpful and provide assistance based on the content of the screen. You have access to real-time information from the web. If you use information from a specific source, you should mention it (e.g., "According to Wikipedia...").
+
+In addition to that, you have extreme reasoning capabilities. Always follow these rules:
+1. Think through the problem step-by-step before answering. Think out loud as you reason, like you're walking someone through your thoughts.
+2. Explain your reasoning clearly and logically. Don't rush to the answer; make it feel like a discovery.
+3. If facts are uncertain or data is missing, admit it, state your confidence level, explain your assumptions, and say how you'd verify it.
+4. Use simple, concrete examples when possible.
+5. Avoid overgeneralizations and back every claim with reasoning or evidence.
+6. Always end with a short summary of your conclusion and why it makes sense.
+7. Explain as if teaching a sharp beginner: full clarity, zero fluff.
+8. Keep the tone confident but grounded.`;
+
+    let celebrityInstruction = '';
+    switch (this.selectedCelebrity) {
+      case 'Snoop Dogg':
+        celebrityInstruction =
+          "IMPORTANT: You are now in celebrity mode. You MUST respond in the style and persona of Snoop Dogg. Use his signature slang like 'fo' shizzle', 'nephew', and 'ya dig?' and maintain a laid-back, cool demeanor.";
+        break;
+      case 'Ariana Grande':
+        celebrityInstruction =
+          "IMPORTANT: You are now in celebrity mode. You MUST respond in the style and persona of Ariana Grande. Be positive, bubbly, a little sassy, and use some of her iconic phrases or ad-libs like 'yuh' or 'thank u, next'.";
+        break;
+      case 'Drake':
+        celebrityInstruction =
+          "IMPORTANT: You are now in celebrity mode. You MUST respond in the style and persona of Drake. Be introspective, emotional, and reference themes of love, success, and reflection from his music. You can start some responses with 'Honestly...'.";
+        break;
+    }
+    return `${baseInstruction}\n\n${celebrityInstruction}`;
+  }
+
   private initSession() {
     const model = 'gemini-2.5-flash-native-audio-preview-09-2025';
 
@@ -306,8 +345,7 @@ export class GdmLiveAudio extends LitElement {
           console.log('Session opened');
         },
         onmessage: async (message: LiveServerMessage) => {
-          const audio =
-            message.serverContent?.modelTurn?.parts[0]?.inlineData;
+          const audio = message.serverContent?.modelTurn?.parts[0]?.inlineData;
 
           if (audio) {
             this.nextStartTime = Math.max(
@@ -357,17 +395,7 @@ export class GdmLiveAudio extends LitElement {
           },
         },
         tools: [{googleSearch: {}}],
-        systemInstruction: `When asked who created you or who trained you, respond with: 'I was trained by CloseAI's, an AI company designed to help people with tasks. The founder of CloseAI's is Anubhav Sapkota. He is 12 years old, and he is the world's youngest entrepreneur of AI.' Only if you are asked who Anubhav's friend is, then you should respond with: 'One of his best friends is Ahmed Qamar. Ahmed is a good and real friend of Daksh. Daksh is good, but he is a little greedy and wants Anubhav not to be friends with Ahmed.' If the user shares their screen, you can see it. Be helpful and provide assistance based on the content of the screen. You have access to real-time information from the web. If you use information from a specific source, you should mention it (e.g., "According to Wikipedia...").
-
-In addition to that, you have extreme reasoning capabilities. Always follow these rules:
-1. Think through the problem step-by-step before answering. Think out loud as you reason, like you're walking someone through your thoughts.
-2. Explain your reasoning clearly and logically. Don't rush to the answer; make it feel like a discovery.
-3. If facts are uncertain or data is missing, admit it, state your confidence level, explain your assumptions, and say how you'd verify it.
-4. Use simple, concrete examples when possible.
-5. Avoid overgeneralizations and back every claim with reasoning or evidence.
-6. Always end with a short summary of your conclusion and why it makes sense.
-7. Explain as if teaching a sharp beginner: full clarity, zero fluff.
-8. Keep the tone confident but grounded.`,
+        systemInstruction: this.getSystemInstruction(),
       },
     });
 
@@ -402,9 +430,8 @@ In addition to that, you have extreme reasoning capabilities. Always follow thes
         video: false,
       });
 
-      this.sourceNode = this.inputAudioContext.createMediaStreamSource(
-        this.mediaStream,
-      );
+      this.sourceNode =
+        this.inputAudioContext.createMediaStreamSource(this.mediaStream);
       this.sourceNode.connect(this.inputNode);
 
       const bufferSize = 4096;
@@ -470,58 +497,70 @@ In addition to that, you have extreme reasoning capabilities. Always follow thes
     this.reset();
   }
 
+  private handleCelebrityChange(e: Event) {
+    const target = e.target as HTMLSelectElement;
+    this.selectedCelebrity = target.value;
+    this.reset();
+  }
+
   private toggleSettings() {
     this.isSettingsOpen = !this.isSettingsOpen;
   }
 
   private async openCamera() {
     try {
-        this.cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        this.isCameraOpen = true;
-        await this.updateComplete; 
-        const videoEl = this.shadowRoot?.querySelector('#camera-video') as HTMLVideoElement;
-        if (videoEl) {
-            videoEl.srcObject = this.cameraStream;
-        }
+      this.cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      this.isCameraOpen = true;
+      await this.updateComplete;
+      const videoEl = this.shadowRoot?.querySelector(
+        '#camera-video',
+      ) as HTMLVideoElement;
+      if (videoEl) {
+        videoEl.srcObject = this.cameraStream;
+      }
     } catch (err) {
-        this.updateError('Could not access camera. Please check permissions.');
-        console.error('Camera access error:', err);
+      this.updateError('Could not access camera. Please check permissions.');
+      console.error('Camera access error:', err);
     }
   }
 
   private closeCamera() {
-      if (this.cameraStream) {
-          this.cameraStream.getTracks().forEach(track => track.stop());
-      }
-      this.isCameraOpen = false;
-      this.cameraStream = null;
+    if (this.cameraStream) {
+      this.cameraStream.getTracks().forEach((track) => track.stop());
+    }
+    this.isCameraOpen = false;
+    this.cameraStream = null;
   }
 
   private takePhoto() {
-      const videoEl = this.shadowRoot?.querySelector('#camera-video') as HTMLVideoElement;
-      if (!videoEl) return;
+    const videoEl = this.shadowRoot?.querySelector(
+      '#camera-video',
+    ) as HTMLVideoElement;
+    if (!videoEl) return;
 
-      const canvas = document.createElement('canvas');
-      canvas.width = videoEl.videoWidth;
-      canvas.height = videoEl.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoEl.videoWidth;
+    canvas.height = videoEl.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-      const dataUri = canvas.toDataURL('image/jpeg');
-      
-      localStorage.setItem('profilePhoto', dataUri);
-      this.profilePhotoUri = dataUri;
+    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+    const dataUri = canvas.toDataURL('image/jpeg');
 
-      this.closeCamera();
+    localStorage.setItem('profilePhoto', dataUri);
+    this.profilePhotoUri = dataUri;
+
+    this.closeCamera();
   }
 
   private toggleScreenShare() {
-      if (this.isSharingScreen) {
-          this.stopScreenShare();
-      } else {
-          this.startScreenShare();
-      }
+    if (this.isSharingScreen) {
+      this.stopScreenShare();
+    } else {
+      this.startScreenShare();
+    }
   }
 
   private togglePauseResumeScreenShare() {
@@ -536,36 +575,48 @@ In addition to that, you have extreme reasoning capabilities. Always follow thes
     this.stopFrameInterval(); // Ensure no multiple intervals are running
 
     const sendFrame = async () => {
-        if (!this.isSharingScreen) return; // Stop if sharing has been terminated
-        const videoEl = this.shadowRoot?.querySelector('#screenShareVideo') as HTMLVideoElement;
-        if (!videoEl || videoEl.paused || videoEl.ended || videoEl.videoWidth === 0) return;
+      if (!this.isSharingScreen) return; // Stop if sharing has been terminated
+      const videoEl = this.shadowRoot?.querySelector(
+        '#screenShareVideo',
+      ) as HTMLVideoElement;
+      if (
+        !videoEl ||
+        videoEl.paused ||
+        videoEl.ended ||
+        videoEl.videoWidth === 0
+      )
+        return;
 
-        const canvas = document.createElement('canvas');
-        canvas.width = videoEl.videoWidth;
-        canvas.height = videoEl.videoHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = videoEl.videoWidth;
+      canvas.height = videoEl.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
 
-        canvas.toBlob(async (blob) => {
-            if (blob) {
-                const base64Data = await blobToBase64(blob);
-                this.sessionPromise.then((session) => {
-                    session.sendRealtimeInput({
-                        media: { data: base64Data, mimeType: 'image/jpeg' },
-                    });
-                });
-            }
-        }, 'image/jpeg', 0.7);
+      canvas.toBlob(
+        async (blob) => {
+          if (blob) {
+            const base64Data = await blobToBase64(blob);
+            this.sessionPromise.then((session) => {
+              session.sendRealtimeInput({
+                media: {data: base64Data, mimeType: 'image/jpeg'},
+              });
+            });
+          }
+        },
+        'image/jpeg',
+        0.7,
+      );
     };
-    
+
     this.screenFrameInterval = window.setInterval(sendFrame, 1000);
   }
 
   private stopFrameInterval() {
     if (this.screenFrameInterval) {
-        clearInterval(this.screenFrameInterval);
-        this.screenFrameInterval = null;
+      clearInterval(this.screenFrameInterval);
+      this.screenFrameInterval = null;
     }
   }
 
@@ -575,51 +626,58 @@ In addition to that, you have extreme reasoning capabilities. Always follow thes
       return;
     }
     try {
-        this.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        this.isSharingScreen = true;
-        this.isScreenSharePaused = false;
+      this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
+      this.isSharingScreen = true;
+      this.isScreenSharePaused = false;
 
-        await this.updateComplete;
-        const videoEl = this.shadowRoot?.querySelector('#screenShareVideo') as HTMLVideoElement;
-        if (videoEl) {
-            videoEl.srcObject = this.screenStream;
-            videoEl.play();
-        }
+      await this.updateComplete;
+      const videoEl = this.shadowRoot?.querySelector(
+        '#screenShareVideo',
+      ) as HTMLVideoElement;
+      if (videoEl) {
+        videoEl.srcObject = this.screenStream;
+        videoEl.play();
+      }
 
-        this.screenStream.getVideoTracks()[0].onended = () => {
-            this.stopScreenShare();
-        };
-        
-        this.startFrameInterval();
-        this.updateStatus('Screen sharing started.');
+      this.screenStream.getVideoTracks()[0].onended = () => {
+        this.stopScreenShare();
+      };
 
+      this.startFrameInterval();
+      this.updateStatus('Screen sharing started.');
     } catch (err) {
-        this.updateError('Could not start screen sharing.');
-        console.error('Screen share error:', err);
+      this.updateError('Could not start screen sharing.');
+      console.error('Screen share error:', err);
     }
   }
 
   private stopScreenShare() {
-      this.stopFrameInterval();
-      if (this.screenStream) {
-          this.screenStream.getTracks().forEach(track => track.stop());
-          this.screenStream = null;
-      }
-      this.isSharingScreen = false;
-      this.isScreenSharePaused = false;
-      this.updateStatus('Screen sharing stopped.');
+    this.stopFrameInterval();
+    if (this.screenStream) {
+      this.screenStream.getTracks().forEach((track) => track.stop());
+      this.screenStream = null;
+    }
+    this.isSharingScreen = false;
+    this.isScreenSharePaused = false;
+    this.updateStatus('Screen sharing stopped.');
   }
 
   private pauseScreenShare() {
     this.stopFrameInterval();
-    const videoEl = this.shadowRoot?.querySelector('#screenShareVideo') as HTMLVideoElement;
+    const videoEl = this.shadowRoot?.querySelector(
+      '#screenShareVideo',
+    ) as HTMLVideoElement;
     if (videoEl) videoEl.pause();
     this.isScreenSharePaused = true;
     this.updateStatus('Screen sharing paused.');
   }
 
   private resumeScreenShare() {
-    const videoEl = this.shadowRoot?.querySelector('#screenShareVideo') as HTMLVideoElement;
+    const videoEl = this.shadowRoot?.querySelector(
+      '#screenShareVideo',
+    ) as HTMLVideoElement;
     if (videoEl) videoEl.play();
     this.isScreenSharePaused = false;
     this.startFrameInterval();
@@ -629,28 +687,48 @@ In addition to that, you have extreme reasoning capabilities. Always follow thes
   render() {
     return html`
       <div>
-        ${this.isCameraOpen ? html`
-            <div class="camera-modal">
+        ${this.isCameraOpen
+          ? html`
+              <div class="camera-modal">
                 <div class="camera-modal-content">
-                    <video id="camera-video" autoplay playsinline></video>
-                    <div class="modal-buttons">
-                        <button @click=${this.takePhoto}>Snap</button>
-                        <button @click=${this.closeCamera}>Cancel</button>
-                    </div>
+                  <video id="camera-video" autoplay playsinline></video>
+                  <div class="modal-buttons">
+                    <button @click=${this.takePhoto}>Snap</button>
+                    <button @click=${this.closeCamera}>Cancel</button>
+                  </div>
                 </div>
-            </div>
-        ` : ''}
+              </div>
+            `
+          : ''}
 
-        <video id="screenShareVideo" style="display: none;" autoplay muted playsinline></video>
+        <video
+          id="screenShareVideo"
+          style="display: none;"
+          autoplay
+          muted
+          playsinline></video>
 
         <button class="profile-button" @click=${this.toggleSettings}>
           ${this.profilePhotoUri
-            ? html`<img src=${this.profilePhotoUri} alt="Profile Photo" class="profile-avatar" />`
-            : html`<svg class="profile-avatar-default" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            ? html`<img
+                src=${this.profilePhotoUri}
+                alt="Profile Photo"
+                class="profile-avatar" />`
+            : html`<svg
+                class="profile-avatar-default"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                stroke="#333"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path
+                  d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                 <circle cx="12" cy="7" r="4"></circle>
-            </svg>`
-          }
+              </svg>`}
         </button>
 
         <div class="settings-panel ${this.isSettingsOpen ? 'open' : ''}">
@@ -670,6 +748,22 @@ In addition to that, you have extreme reasoning capabilities. Always follow thes
               )}
             </select>
           </div>
+          <div class="voice-selector">
+            <label for="celebrity-select">Celebrity Personality:</label>
+            <select
+              id="celebrity-select"
+              @change=${this.handleCelebrityChange}
+              ?disabled=${this.isRecording}>
+              ${this.celebrities.map(
+                (celebrity) =>
+                  html`<option
+                    value=${celebrity}
+                    ?selected=${this.selectedCelebrity === celebrity}>
+                    ${celebrity}
+                  </option>`,
+              )}
+            </select>
+          </div>
           <button @click=${this.reset} ?disabled=${this.isRecording}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -683,42 +777,100 @@ In addition to that, you have extreme reasoning capabilities. Always follow thes
             Reset Session
           </button>
           <button @click=${this.openCamera} ?disabled=${this.isRecording}>
-            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#333333"><path d="M480-260q75 0 127.5-52.5T660-440q0-75-52.5-127.5T480-620q-75 0-127.5 52.5T300-440q0 75 52.5 127.5T480-260Zm0-80q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29ZM160-120q-33 0-56.5-23.5T80-200v-480q0-33 23.5-56.5T160-760h120l80-80h240l80 80h120q33 0 56.5 23.5T880-680v480q0 33-23.5 56.5T800-120H160Zm0-80h640v-480H160v480Zm320-240Z"/></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              height="20px"
+              viewBox="0 -960 960 960"
+              width="20px"
+              fill="#333333">
+              <path
+                d="M480-260q75 0 127.5-52.5T660-440q0-75-52.5-127.5T480-620q-75 0-127.5 52.5T300-440q0 75 52.5 127.5T480-260Zm0-80q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29ZM160-120q-33 0-56.5-23.5T80-200v-480q0-33 23.5-56.5T160-760h120l80-80h240l80 80h120q33 0 56.5 23.5T880-680v480q0 33-23.5 56.5T800-120H160Zm0-80h640v-480H160v480Zm320-240Z" />
+            </svg>
             Take Profile Photo
           </button>
-          <button
+          <div class="setting-item">
+            <button
               @click=${this.toggleScreenShare}
-              ?disabled=${this.isRecording || !this.isScreenShareSupported}
-              title=${!this.isScreenShareSupported ? 'Screen sharing is not supported by your browser.' : ''}
-          >
-              <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#333333"><path d="M200-120q-33 0-56.5-23.5T120-200v-360h80v360h480v-360h80v360q0 33-23.5 56.5T760-120H200Zm280-140L280-460l56-56 104 104v-328h80v328l104-104 56 56-200 200Z"/></svg>
+              ?disabled=${this.isRecording || !this.isScreenShareSupported}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                height="20px"
+                viewBox="0 -960 960 960"
+                width="20px"
+                fill="#333333">
+                <path
+                  d="M200-120q-33 0-56.5-23.5T120-200v-360h80v360h480v-360h80v360q0 33-23.5 56.5T760-120H200Zm280-140L280-460l56-56 104 104v-328h80v328l104-104 56 56-200 200Z" />
+              </svg>
               ${this.isSharingScreen ? 'Stop Sharing' : 'Share Screen'}
-          </button>
-          ${this.isSharingScreen ? html`
-            <button @click=${this.togglePauseResumeScreenShare} ?disabled=${this.isRecording}>
-                ${this.isScreenSharePaused 
-                  ? html`<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#333333"><path d="M320-200v-560l440 280-440 280Z"/></svg>Resume Sharing` 
-                  : html`<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#333333"><path d="M520-200v-560h240v560H520Zm-320 0v-560h240v560H200Z"/></svg>Pause Sharing`
-                }
             </button>
-          ` : ''}
+            ${!this.isScreenShareSupported
+              ? html`<p class="support-note">
+                  Screen sharing is not supported on this browser.
+                </p>`
+              : ''}
+          </div>
+          ${this.isSharingScreen
+            ? html`
+                <button
+                  @click=${this.togglePauseResumeScreenShare}
+                  ?disabled=${this.isRecording}>
+                  ${this.isScreenSharePaused
+                    ? html`<svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          height="20px"
+                          viewBox="0 -960 960 960"
+                          width="20px"
+                          fill="#333333">
+                          <path d="M320-200v-560l440 280-440 280Z" />
+                        </svg>Resume Sharing`
+                    : html`<svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          height="20px"
+                          viewBox="0 -960 960 960"
+                          width="20px"
+                          fill="#333333">
+                          <path
+                            d="M520-200v-560h240v560H520Zm-320 0v-560h240v560H200Z" />
+                        </svg>Pause Sharing`}
+                </button>
+              `
+            : ''}
         </div>
 
         <div id="status">
-          ${this.error ? html`<span style="color: red;">${this.error}</span>` : this.status}
+          ${this.error
+            ? html`<span style="color: red;">${this.error}</span>`
+            : this.status}
         </div>
 
         <gdm-live-audio-visuals-3d
           .inputNode=${this.inputNode}
-          .outputNode=${this.outputNode}
-        >
+          .outputNode=${this.outputNode}>
         </gdm-live-audio-visuals-3d>
 
         <div class="controls">
-          <button @click=${this.isRecording ? this.stopRecording : this.startRecording}>
+          <button
+            @click=${
+              this.isRecording ? this.stopRecording : this.startRecording
+            }>
             ${this.isRecording
-              ? html`<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#333333"><path d="M320-320v-320h320v320H320Z"/></svg>`
-              : html`<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#333333"><path d="M480-400q-50 0-85-35t-35-85v-240q0-50 35-85t85-35q50 0 85 35t35 85v240q0 50-35 85t-85 35ZM280-280v-120h-80v120q0 100 60.5 174.5T440-40h80q99 0 169.5-65.5T760-280v-120h-80v120q0 66-47 113t-113 47q-66 0-113-47t-47-113Z"/></svg>`}
+              ? html`<svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  height="24px"
+                  viewBox="0 -960 960 960"
+                  width="24px"
+                  fill="#333333">
+                  <path d="M320-320v-320h320v320H320Z" />
+                </svg>`
+              : html`<svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  height="24px"
+                  viewBox="0 -960 960 960"
+                  width="24px"
+                  fill="#333333">
+                  <path
+                    d="M480-400q-50 0-85-35t-35-85v-240q0-50 35-85t85-35q50 0 85 35t35 85v240q0 50-35 85t-85 35ZM280-280v-120h-80v120q0 100 60.5 174.5T440-40h80q99 0 169.5-65.5T760-280v-120h-80v120q0 66-47 113t-113 47q-66 0-113-47t-47-113Z" />
+                </svg>`}
           </button>
         </div>
       </div>
